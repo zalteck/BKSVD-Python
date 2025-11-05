@@ -25,3 +25,4 @@ def directDeconvolve(I, RM):
     YT = Y.reshape((m * n, c)).T
     CT = np.linalg.lstsq(RM, YT, rcond=None)[0]
     return CT
+

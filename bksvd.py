@@ -135,6 +135,33 @@ def Normaliza(Mref, C, M, neg2cero, norm_fac):
 
     return Inorm, StainNorm
 
+def NormAugment(Mref, C, M, neg2cero, norm_fac, sigma1=0.5, sigma2=0.5):
+    if neg2cero:
+        C[C < np.finfo(float).eps] = np.finfo(float).eps
+
+    ns, p = C.shape
+    c = 3
+    m = int(np.sqrt(p))
+    n = m
+
+    CT_norm = C * norm_fac[:, np.newaxis]
+    # Generate random multipliers and offsets (one per row)
+    multipliers = np.random.uniform(1-sigma1, 1+sigma1, (2, 1))   # shape (2,1) — one scalar per row
+    offsets = np.random.uniform(-sigma2, sigma2, (2, 1))       # shape (2,1) — one scalar per row
+    CT_aug = CT_norm * multipliers + offsets
+    
+    Yrec = Mref[:, :ns] @ CT_aug
+    Y2d = Yrec.T.reshape(m, n, c)
+    Inorm = utils.od2rgb(Y2d)
+
+    StainNorm = []
+    for i in range(ns):
+        stain = Mref[:, i, np.newaxis] @ CT_aug[i, np.newaxis, :]
+        stain = utils.od2rgb(stain).T.reshape(m, n, c)
+        StainNorm.append(stain)
+
+    return Inorm, StainNorm
+
 def MI_MB_BKSVD4SD(Images, D0, K):
     n_images = len(Images)
     images_per_batch = min(20, n_images)
