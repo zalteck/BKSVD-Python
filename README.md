@@ -34,6 +34,9 @@ This will process the sample images in the `data` directory and display the orig
 ## Data
 The data included in this repo is a small sample to provide an example. Please notice that the patches have a very low quality and present jpg artifacts. We recommend to explore the algorithm using your own data.
 
+The patched image is extracted from the SCAN algorithm dataset
+Salvi, Massimo; Michielli, Nicola; Molinari, Filippo (2020), “SCAN algorithm dataset”, Mendeley Data, V1, doi: 10.17632/sc878z8pm3.1
+
 ## License
 
 This project is licensed under the MIT License.

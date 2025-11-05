@@ -1,6 +1,7 @@
 import numpy as np
 import utils
-from PIL import Image
+import matplotlib.pyplot as plt
+# from PIL import Image
 
 def MB_BKSVD4SD(I, D0, K, maxIter=100, batch_size=1000, n_batches=10):
     Y = utils.rgb2od(np.array(I))
@@ -139,7 +140,19 @@ def MI_MB_BKSVD4SD(Images, D0, K):
     images_per_batch = min(20, n_images)
 
     i_imgs = np.random.permutation(n_images)[:images_per_batch]
-    loaded_images = [np.array(Image.open(Images[i])) for i in i_imgs]
+    
+    # loaded_images = [np.array(plt.imread(Images[i])) for i in i_imgs]
+    loaded_images = []
+    for i in i_imgs:
+        img = plt.imread(Images[i])
+        # --- 1. Convert to uint8 ---
+        if img.dtype != np.uint8:
+            img = (img * 255).clip(0, 255).astype(np.uint8)
+        # --- 2. Remove alpha channel if present (RGBA → RGB) ---
+        if img.ndim == 3 and img.shape[2] == 4:
+            img = img[:, :, :3]
+        loaded_images.append(img)
+    
     I = np.concatenate(loaded_images, axis=0)
 
     D, CT = MB_BKSVD4SD(I, D0, K)

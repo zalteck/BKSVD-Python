@@ -4,6 +4,7 @@ import scipy.io
 import matplotlib.pyplot as plt
 from bksvd import MI_MB_BKSVD4SD, Normaliza
 import glob
+from utils import directDeconvolve
 
 # Params
 ns = 2
@@ -13,29 +14,39 @@ mat_data = scipy.io.loadmat('data/MLandini.mat')
 RM = mat_data['RM']
 D0 = RM[:, :ns]
 
-# Reference Images
-ref_images = glob.glob('data/hist1*.jpg')
-Mref, Cref_Rmax = MI_MB_BKSVD4SD(ref_images, D0, ns)
+
+#Assume known reference (Estimated in the single example)
+if 'Mref' not in locals():
+    Mref = np.array([[0.47422288, 0.32263002],
+           [0.79314221, 0.82746922],
+           [0.38214931, 0.45956997]])
+    Cref_Rmax = np.array([3.56385862, 1.97801672])
+
 
 # Images to normalize
-images_to_normalize = glob.glob('data/hist2*.jpg')
+images_to_normalize = glob.glob('data/patched_image/*')
 M, C_Rmax = MI_MB_BKSVD4SD(images_to_normalize, D0, ns)
 
 # Deconvolution and normalization
 norm_fac = Cref_Rmax / C_Rmax
 neg2cero = False
 
+
 # Load images to be normalized
-loaded_images = [Image.open(p) for p in images_to_normalize[:5]]
+loaded_images = [plt.imread(p) for p in images_to_normalize[:5]]
 
 fig, axes = plt.subplots(2, len(loaded_images), figsize=(15, 10))
 
-for i, img in enumerate(loaded_images):
-    # Direct deconvolution is implicitly handled within Normaliza in the MATLAB code
-    # but here we need to calculate C first.
-    # For simplicity, we will use the M from the multi-image processing.
-    # A more accurate approach would be to deconvolve each image with the learned M.
-    from utils import directDeconvolve
+for i, p in enumerate(images_to_normalize[:5]):
+
+    img = plt.imread(p)
+    # --- 1. Convert to uint8 ---
+    if img.dtype != np.uint8:
+        img = (img * 255).clip(0, 255).astype(np.uint8)
+    # --- 2. Remove alpha channel if present (RGBA → RGB) ---
+    if img.ndim == 3 and img.shape[2] == 4:
+        img = img[:, :, :3]
+    
     C = directDeconvolve(np.array(img), M)
 
     Irec_norm, _ = Normaliza(Mref, C, M, neg2cero, norm_fac)
