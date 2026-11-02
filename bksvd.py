@@ -1,7 +1,13 @@
 import numpy as np
-import utils
 import matplotlib.pyplot as plt
 # from PIL import Image
+
+try:
+    # When bksvd.py is imported as part of a package (e.g. `from bksvd.bksvd import ...`)
+    from . import utils
+except ImportError:
+    # When bksvd.py is run/imported as a top-level module in its own directory
+    import utils
 
 def MB_BKSVD4SD(I, D0, K, maxIter=100, batch_size=1000, n_batches=10):
     Y = utils.rgb2od(np.array(I))
@@ -21,6 +27,11 @@ def MB_BKSVD4SD(I, D0, K, maxIter=100, batch_size=1000, n_batches=10):
     Devol = 1
     termD = 5.e-03
     current_batch = 0
+
+    # Noise model (sigma_noise is the noise *precision*, re-estimated each iter)
+    sigma_noise = np.std(Y_full, ddof=1) ** 2 / 1e2
+    a_noise = 1
+    b_noise = 0.5
 
     while current_batch < n_batches and Devol > termD:
         D_batch = D.copy()
@@ -64,9 +75,9 @@ def MB_BKSVD4SD(I, D0, K, maxIter=100, batch_size=1000, n_batches=10):
 
                 try:
                     inv_matrix = np.linalg.inv(np.diag(p_gamma[q].flatten()))
-                    S_inv = np.linalg.inv(D.T @ D + inv_matrix)
+                    S_inv = np.linalg.inv(sigma_noise * (D.T @ D) + inv_matrix)
                     pS_xq[q] = S_inv
-                    pX[q] = S_inv @ D.T @ Y_batch[:, q]
+                    pX[q] = sigma_noise * S_inv @ D.T @ Y_batch[:, q]
                 except np.linalg.LinAlgError:
                     # Handle cases where matrix is singular
                     pS_xq[q] = np.zeros((K,K))
@@ -104,8 +115,27 @@ def MB_BKSVD4SD(I, D0, K, maxIter=100, batch_size=1000, n_batches=10):
                     norm_tk = np.linalg.norm(tk)
                     if norm_tk > 0:
                         Dnew[:, k] = tk / norm_tk
-                
+
                 D = Dnew
+
+                # Avoid the third vector replacing the others (K==3 only)
+                if K == 3:
+                    if (np.linalg.norm(D[:, 0] - D[:, 2]) < 0.1 or
+                            np.linalg.norm(D[:, 1] - D[:, 2]) < 0.1):
+                        D[:, 2] = D0[:, 2]
+
+            # Re-estimate noise precision.
+            # NOTE: MATLAB's norm(matrix) is the induced 2-norm (largest singular
+            # value). Statistically, however, this noise-precision update is derived
+            # from the *sum of squared residuals* (Frobenius^2 = N * variance), so the
+            # Frobenius norm (np.linalg.norm default) is used here as it gives better
+            # results. Pass ord=2 if exact MATLAB numerical parity is required.
+            sigma_noise = (3 * Q + 2 * a_noise) / (np.linalg.norm(Y_batch - D @ X) ** 2 + 2 * b_noise)
+
+            # Convergence: relative change of the first two concentration rows
+            convH = np.sum((X[0, :] - X0[0, :]) ** 2) / np.sum(X0[0, :] ** 2)
+            convE = np.sum((X[1, :] - X0[1, :]) ** 2) / np.sum(X0[1, :] ** 2)
+            X0 = X.copy()
 
         Devol = np.linalg.norm(D_batch - D)
         print(f'- BKSVD - batch: {current_batch} - iter: {iter_count} of {maxIter}')

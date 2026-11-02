@@ -2,9 +2,8 @@ import numpy as np
 
 def rgb2od(rgb):
     """Converts RGB to optical density."""
-    # Add a small epsilon to avoid taking the log of zero
-    eps = 1e-6
-    return -np.log((rgb.astype(float) + 1) / 256 + eps)
+    # Matches MATLAB: od = real(-log((rgb+1)/256)); argument is always >= 1/256
+    return -np.log((rgb.astype(float) + 1) / 256)
 
 def od2rgb(od):
     """Converts optical density to RGB."""
